@@ -440,11 +440,16 @@ fi
 
 # Step 8: Start OSRM Server
 print_status "Starting OSRM Server with US map data..."
-$DOCKER_CMD run -d --name osrm-us-server -p 5001:5000 -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/us-latest.osrm
+print_status "Binding to 0.0.0.0:5001 for external access"
+$DOCKER_CMD run -d --name osrm-us-server -p 0.0.0.0:5001:5000 -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/us-latest.osrm
 
 if [ $? -eq 0 ]; then
     print_success "OSRM Server started successfully on port 5001"
-    print_status "Server URL: http://localhost:5001"
+    
+    # Get external IP
+    EXTERNAL_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "localhost")
+    print_status "Server URL: http://localhost:5001 (local)"
+    print_status "External URL: http://${EXTERNAL_IP}:5001 (external)"
 else
     print_error "Failed to start OSRM server"
     exit 1
@@ -457,12 +462,33 @@ sleep 10
 # Step 9: Test the server
 print_status "Testing OSRM server..."
 
+# Wait a bit for server to fully start
+print_status "Waiting 10 seconds for server to fully start..."
+sleep 10
+
+# Check if server is responding
+print_status "Checking server health..."
+HEALTH_RESPONSE=$(curl -s -w "%{http_code}" "http://localhost:5001/health" -o /dev/null)
+if [ "$HEALTH_RESPONSE" != "200" ]; then
+    print_warning "Server health check failed (HTTP $HEALTH_RESPONSE), but continuing with route test..."
+fi
+
 # Test with sample coordinates (NYC to LA)
 TEST_COORDS="-74.0060,40.7128;-118.2437,34.0522"
 print_status "Testing route: NYC to LA"
 
-# Test basic route
-RESPONSE=$(curl -s "http://localhost:5001/route/v1/driving/${TEST_COORDS}?overview=false&annotations=distance,duration")
+# Test basic route with timeout
+print_status "Making route request..."
+RESPONSE=$(curl -s --max-time 30 "http://localhost:5001/route/v1/driving/${TEST_COORDS}?overview=false&annotations=distance,duration")
+CURL_EXIT_CODE=$?
+
+if [ $CURL_EXIT_CODE -ne 0 ]; then
+    print_error "Curl failed with exit code: $CURL_EXIT_CODE"
+    print_error "Response: $RESPONSE"
+    print_status "This might be normal - server may still be starting up"
+else
+    print_status "Route request completed successfully"
+fi
 
 if echo "$RESPONSE" | grep -q '"code":"Ok"'; then
     DISTANCE=$(echo "$RESPONSE" | jq -r '.routes[0].distance')
