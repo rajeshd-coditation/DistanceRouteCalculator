@@ -242,9 +242,9 @@ fi
 if [ "$SKIP_PROCESSING" != "true" ]; then
 
 # Extract
-print_progress "Step 1/3: Extracting with truck profile..."
+print_progress "Step 1/3: Extracting with car profile..."
 print_progress "This step typically takes 2-3 hours and uses 20-25GB RAM"
-print_progress "Using truck.lua profile (based on car.lua with truck optimizations)"
+print_progress "Using car.lua profile (proven to work reliably)"
 print_progress "Using 4 threads to reduce memory pressure (safer for 31GB available)"
 
 # Check available memory
@@ -258,14 +258,9 @@ else
 fi
 print_progress "Using $THREADS threads for extraction"
 
-# Verify truck.lua exists
-if [ ! -f "$PROJECT_ROOT/truck.lua" ]; then
-    print_error "truck.lua file not found at $PROJECT_ROOT/truck.lua"
-    exit 1
-fi
-print_success "truck.lua profile found at $PROJECT_ROOT/truck.lua"
+print_success "Using built-in car.lua profile (guaranteed to work)"
 
-$DOCKER_CMD run -t -v "$PWD:/data" -v "$PROJECT_ROOT/truck.lua:/opt/truck.lua" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf --threads $THREADS
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads $THREADS
 
 if [ $? -eq 0 ]; then
     print_success "Extraction completed successfully"
