@@ -35,8 +35,25 @@ if [ ! -f "run.sh" ]; then
 fi
 
 # Check if OSRM data exists
-if [ ! -f "osrm-data/us-latest.osrm" ]; then
-    print_error "OSRM data not found at osrm-data/us-latest.osrm"
+print_status "Checking for OSRM data..."
+
+# Look for OSRM files in osrm-data directory
+if [ -d "osrm-data" ]; then
+    print_status "osrm-data directory found, checking for OSRM files..."
+    ls -la osrm-data/*.osrm* 2>/dev/null || print_warning "No .osrm files found in osrm-data/"
+    
+    # Check if any OSRM files exist
+    OSRM_FILES=$(ls osrm-data/*.osrm* 2>/dev/null | wc -l)
+    if [ "$OSRM_FILES" -eq 0 ]; then
+        print_error "No OSRM files found in osrm-data directory"
+        print_status "Please run the full setup first: ./run.sh"
+        exit 1
+    fi
+    
+    print_success "Found $OSRM_FILES OSRM file(s) in osrm-data directory"
+    ls -la osrm-data/*.osrm* 2>/dev/null
+else
+    print_error "osrm-data directory not found"
     print_status "Please run the full setup first: ./run.sh"
     exit 1
 fi
