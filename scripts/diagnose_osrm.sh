@@ -156,5 +156,117 @@ fi
 
 cd ..
 
+# Analyze logs to find the failure reason
+print_status "Analyzing processing logs to find failure reason..."
+echo ""
+
+# Find the latest log file
+LATEST_LOG=$(ls -t logs/osrm_setup_*.log 2>/dev/null | head -1)
+if [ -n "$LATEST_LOG" ]; then
+    print_status "Analyzing log file: $LATEST_LOG"
+    echo ""
+    
+    # Check for common failure patterns
+    print_status "=== FAILURE ANALYSIS ==="
+    
+    # Check for memory issues
+    if grep -q "Out of memory\|OOM\|killed\|terminate called" "$LATEST_LOG"; then
+        print_error "MEMORY ISSUE DETECTED:"
+        grep -i "out of memory\|OOM\|killed\|terminate called" "$LATEST_LOG" | tail -3
+        echo ""
+    fi
+    
+    # Check for Docker issues
+    if grep -q "docker.*error\|container.*failed\|permission denied" "$LATEST_LOG"; then
+        print_error "DOCKER ISSUE DETECTED:"
+        grep -i "docker.*error\|container.*failed\|permission denied" "$LATEST_LOG" | tail -3
+        echo ""
+    fi
+    
+    # Check for OSRM processing errors
+    if grep -q "no edges remaining\|Profile.*error\|extraction.*failed" "$LATEST_LOG"; then
+        print_error "OSRM PROCESSING ERROR:"
+        grep -i "no edges remaining\|Profile.*error\|extraction.*failed" "$LATEST_LOG" | tail -3
+        echo ""
+    fi
+    
+    # Check for file system issues
+    if grep -q "No space left\|disk full\|write error" "$LATEST_LOG"; then
+        print_error "DISK SPACE ISSUE:"
+        grep -i "No space left\|disk full\|write error" "$LATEST_LOG" | tail -3
+        echo ""
+    fi
+    
+    # Check for process termination
+    if grep -q "Process.*killed\|SIGKILL\|exit code 137" "$LATEST_LOG"; then
+        print_error "PROCESS TERMINATED:"
+        grep -i "Process.*killed\|SIGKILL\|exit code 137" "$LATEST_LOG" | tail -3
+        echo ""
+    fi
+    
+    # Show the last 20 lines of the log
+    print_status "=== LAST 20 LINES OF LOG ==="
+    tail -20 "$LATEST_LOG"
+    echo ""
+    
+    # Check if processing completed any steps
+    print_status "=== PROCESSING STEPS ANALYSIS ==="
+    
+    if grep -q "Extraction completed successfully" "$LATEST_LOG"; then
+        print_success "✓ Extraction completed"
+    else
+        print_error "✗ Extraction failed or incomplete"
+    fi
+    
+    if grep -q "Partition completed successfully" "$LATEST_LOG"; then
+        print_success "✓ Partition completed"
+    else
+        print_error "✗ Partition failed or incomplete"
+    fi
+    
+    if grep -q "Customize completed successfully" "$LATEST_LOG"; then
+        print_success "✓ Customize completed"
+    else
+        print_error "✗ Customize failed or incomplete"
+    fi
+    
+    # Check memory usage during processing
+    print_status "=== MEMORY USAGE DURING PROCESSING ==="
+    if grep -q "Memory:" "$LATEST_LOG"; then
+        grep "Memory:" "$LATEST_LOG" | tail -5
+    else
+        print_warning "No memory usage data found in logs"
+    fi
+    
+else
+    print_warning "No log files found to analyze"
+fi
+
+echo ""
+print_status "=== RECOMMENDATIONS ==="
+
+# Check current memory
+CURRENT_MEMORY=$(free -g | awk '/^Mem:/{print $7}')
+if [ "$CURRENT_MEMORY" -lt 25 ]; then
+    print_error "Low memory detected (${CURRENT_MEMORY}GB available)"
+    print_status "Recommendation: Restart with more memory or wait for other processes to finish"
+else
+    print_success "Memory looks good (${CURRENT_MEMORY}GB available)"
+fi
+
+# Check disk space
+DISK_USAGE=$(df -h . | tail -1 | awk '{print $5}' | sed 's/%//')
+if [ "$DISK_USAGE" -gt 90 ]; then
+    print_error "Disk space low (${DISK_USAGE}% used)"
+    print_status "Recommendation: Free up disk space"
+else
+    print_success "Disk space looks good (${DISK_USAGE}% used)"
+fi
+
+print_status "Next steps:"
+print_status "1. If memory/disk issues: Fix them and restart"
+print_status "2. If processing failed: Run ./scripts/run_background.sh"
+print_status "3. Monitor with: ./scripts/monitor_setup.sh"
+
 echo ""
 print_status "Diagnostic complete!"
