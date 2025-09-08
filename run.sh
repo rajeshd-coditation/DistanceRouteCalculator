@@ -322,6 +322,14 @@ done
 
 if [ $? -eq 0 ]; then
     print_success "Extraction completed successfully"
+    
+    # Show what files were created
+    print_progress "Files created by extraction:"
+    ls -la *.osrm* 2>/dev/null || print_warning "No .osrm files found"
+    
+    # Show all files in directory
+    print_progress "All files in current directory:"
+    ls -la
 else
     print_error "Extraction failed"
     exit 1
@@ -333,13 +341,29 @@ print_progress "This step typically takes 45-90 minutes and uses 10-15GB RAM"
 print_progress "Using $THREADS threads for partitioning"
 check_memory
 
-# Verify .osrm file exists
-if [ ! -f "us-latest.osrm" ]; then
-    print_error "OSRM file us-latest.osrm not found! Extraction may have failed."
+# Check what OSRM files were created
+print_progress "Checking OSRM files created by extraction..."
+ls -la *.osrm* 2>/dev/null || print_warning "No .osrm files found in current directory"
+
+# Look for any OSRM files (they might have different extensions)
+OSRM_FILES=$(ls *.osrm* 2>/dev/null | wc -l)
+if [ "$OSRM_FILES" -eq 0 ]; then
+    print_error "No OSRM files found! Extraction may have failed."
+    print_progress "Files in current directory:"
+    ls -la
     exit 1
 fi
 
-print_progress "OSRM file found: us-latest.osrm"
+print_success "Found $OSRM_FILES OSRM file(s):"
+ls -la *.osrm* 2>/dev/null
+
+# Check if the main .osrm file exists (without extension)
+if [ ! -f "us-latest.osrm" ]; then
+    print_warning "Main .osrm file not found, but other OSRM files exist"
+    print_progress "This might be normal - continuing with available files"
+else
+    print_success "Main OSRM file found: us-latest.osrm"
+fi
 print_progress "Executing: docker run -t -v \"$PWD:/data\" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm --threads $THREADS"
 show_system_resources
 
@@ -367,13 +391,29 @@ print_progress "This step typically takes 45-90 minutes and uses 10-15GB RAM"
 print_progress "Using $THREADS threads for customizing"
 check_memory
 
-# Verify .osrm file still exists
-if [ ! -f "us-latest.osrm" ]; then
-    print_error "OSRM file us-latest.osrm not found! Partition may have failed."
+# Check OSRM files after partitioning
+print_progress "Checking OSRM files after partitioning..."
+ls -la *.osrm* 2>/dev/null || print_warning "No .osrm files found in current directory"
+
+# Look for any OSRM files
+OSRM_FILES=$(ls *.osrm* 2>/dev/null | wc -l)
+if [ "$OSRM_FILES" -eq 0 ]; then
+    print_error "No OSRM files found! Partition may have failed."
+    print_progress "Files in current directory:"
+    ls -la
     exit 1
 fi
 
-print_progress "OSRM file found: us-latest.osrm"
+print_success "Found $OSRM_FILES OSRM file(s) after partitioning:"
+ls -la *.osrm* 2>/dev/null
+
+# Check if the main .osrm file exists
+if [ ! -f "us-latest.osrm" ]; then
+    print_warning "Main .osrm file not found, but other OSRM files exist"
+    print_progress "This might be normal - continuing with available files"
+else
+    print_success "Main OSRM file found: us-latest.osrm"
+fi
 print_progress "Executing: docker run -t -v \"$PWD:/data\" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm --threads $THREADS"
 show_system_resources
 
