@@ -139,21 +139,29 @@ if [ -f "us-latest.osm.pbf" ]; then
     print_warning "US map data already exists (${FILE_SIZE})"
     print_status "File: us-latest.osm.pbf"
     print_status "Location: $(pwd)/us-latest.osm.pbf"
-    echo ""
-    read -p "Do you want to re-download the US map data? (y/N): " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_status "Re-downloading US map data (this may take 30-60 minutes)..."
-        print_warning "File size: ~11GB - ensure you have sufficient disk space"
-        wget -O us-latest.osm.pbf http://download.geofabrik.de/north-america/us-latest.osm.pbf
-        if [ -f "us-latest.osm.pbf" ]; then
-            FILE_SIZE=$(du -h us-latest.osm.pbf | cut -f1)
-            print_success "US map data re-downloaded successfully (${FILE_SIZE})"
+    
+    # Check if running in background (non-interactive)
+    if [ -t 0 ]; then
+        # Interactive mode - ask user
+        echo ""
+        read -p "Do you want to re-download the US map data? (y/N): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            print_status "Re-downloading US map data (this may take 30-60 minutes)..."
+            print_warning "File size: ~11GB - ensure you have sufficient disk space"
+            wget -O us-latest.osm.pbf http://download.geofabrik.de/north-america/us-latest.osm.pbf
+            if [ -f "us-latest.osm.pbf" ]; then
+                FILE_SIZE=$(du -h us-latest.osm.pbf | cut -f1)
+                print_success "US map data re-downloaded successfully (${FILE_SIZE})"
+            else
+                print_error "Failed to re-download US map data"
+                exit 1
+            fi
         else
-            print_error "Failed to re-download US map data"
-            exit 1
+            print_success "Using existing US map data (${FILE_SIZE})"
         fi
     else
+        # Non-interactive mode (background) - use existing file
         print_success "Using existing US map data (${FILE_SIZE})"
     fi
 else
@@ -176,13 +184,23 @@ fi
 if [ -f "us-latest.osrm" ]; then
     print_warning "OSRM processed files already exist"
     print_status "Found: us-latest.osrm"
-    echo ""
-    read -p "Do you want to re-process the OSRM data? (y/N): " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_status "Re-processing OSRM data (this will take 2-4 hours)..."
-        print_warning "Memory usage will peak at 25-35GB during extraction"
+    
+    # Check if running in background (non-interactive)
+    if [ -t 0 ]; then
+        # Interactive mode - ask user
+        echo ""
+        read -p "Do you want to re-process the OSRM data? (y/N): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            print_status "Re-processing OSRM data (this will take 2-4 hours)..."
+            print_warning "Memory usage will peak at 25-35GB during extraction"
+            SKIP_PROCESSING=false
+        else
+            print_success "Using existing OSRM processed files"
+            SKIP_PROCESSING=true
+        fi
     else
+        # Non-interactive mode (background) - use existing files
         print_success "Using existing OSRM processed files"
         SKIP_PROCESSING=true
     fi
@@ -198,7 +216,7 @@ if [ "$SKIP_PROCESSING" != "true" ]; then
 print_progress "Step 1/3: Extracting with truck profile..."
 print_progress "This step typically takes 1-2 hours and uses 25-35GB RAM"
 print_progress "Using truck.lua profile for movers and packers routing"
-$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf --threads 8
+$DOCKER_CMD run -t -v "$PWD:/data" -v "$PWD/truck.lua:/opt/truck.lua" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf --threads 8
 
 if [ $? -eq 0 ]; then
     print_success "Extraction completed successfully"
