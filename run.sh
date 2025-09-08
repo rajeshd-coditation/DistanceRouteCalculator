@@ -43,6 +43,22 @@ print_progress() {
     echo -e "${BLUE}[$(date '+%H:%M:%S')]${NC} $1"
 }
 
+# Function to check memory usage
+check_memory() {
+    local available_memory=$(free -g | awk '/^Mem:/{print $7}')
+    local used_memory=$(free -g | awk '/^Mem:/{print $3}')
+    local total_memory=$(free -g | awk '/^Mem:/{print $2}')
+    print_progress "Memory: ${used_memory}GB used, ${available_memory}GB available, ${total_memory}GB total"
+    
+    if [ "$available_memory" -lt 5 ]; then
+        print_warning "CRITICAL: Only ${available_memory}GB memory available! Process may fail."
+        return 1
+    elif [ "$available_memory" -lt 10 ]; then
+        print_warning "WARNING: Low memory (${available_memory}GB available). Monitor closely."
+    fi
+    return 0
+}
+
 # Check if running as root
 if [[ $EUID -eq 0 ]]; then
    print_error "This script should not be run as root"
@@ -227,8 +243,20 @@ if [ "$SKIP_PROCESSING" != "true" ]; then
 
 # Extract
 print_progress "Step 1/3: Extracting with truck profile..."
-print_progress "This step typically takes 1-2 hours and uses 25-35GB RAM"
+print_progress "This step typically takes 2-3 hours and uses 20-25GB RAM"
 print_progress "Using truck.lua profile (based on car.lua with truck optimizations)"
+print_progress "Using 4 threads to reduce memory pressure (safer for 31GB available)"
+
+# Check available memory
+check_memory
+AVAILABLE_MEMORY=$(free -g | awk '/^Mem:/{print $7}')
+if [ "$AVAILABLE_MEMORY" -lt 25 ]; then
+    print_warning "Low memory detected (${AVAILABLE_MEMORY}GB). Using 2 threads for safety."
+    THREADS=2
+else
+    THREADS=4
+fi
+print_progress "Using $THREADS threads for extraction"
 
 # Verify truck.lua exists
 if [ ! -f "$PROJECT_ROOT/truck.lua" ]; then
@@ -237,7 +265,7 @@ if [ ! -f "$PROJECT_ROOT/truck.lua" ]; then
 fi
 print_success "truck.lua profile found at $PROJECT_ROOT/truck.lua"
 
-$DOCKER_CMD run -t -v "$PWD:/data" -v "$PROJECT_ROOT/truck.lua:/opt/truck.lua" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf --threads 8
+$DOCKER_CMD run -t -v "$PWD:/data" -v "$PROJECT_ROOT/truck.lua:/opt/truck.lua" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf --threads $THREADS
 
 if [ $? -eq 0 ]; then
     print_success "Extraction completed successfully"
@@ -248,8 +276,10 @@ fi
 
 # Partition
 print_progress "Step 2/3: Partitioning data..."
-print_progress "This step typically takes 30-60 minutes"
-$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm
+print_progress "This step typically takes 45-90 minutes and uses 10-15GB RAM"
+print_progress "Using $THREADS threads for partitioning"
+check_memory
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm --threads $THREADS
 
 if [ $? -eq 0 ]; then
     print_success "Partition completed successfully"
@@ -260,8 +290,10 @@ fi
 
 # Customize
 print_progress "Step 3/3: Customizing data..."
-print_progress "This step typically takes 30-60 minutes"
-$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm
+print_progress "This step typically takes 45-90 minutes and uses 10-15GB RAM"
+print_progress "Using $THREADS threads for customizing"
+check_memory
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm --threads $THREADS
 
 if [ $? -eq 0 ]; then
     print_success "Customize completed successfully"
