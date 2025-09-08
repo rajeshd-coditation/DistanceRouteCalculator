@@ -77,4 +77,9 @@ print_status "Cleaning up OSRM containers..."
 docker ps -q --filter "name=osrm" | xargs -r docker stop 2>/dev/null || true
 docker ps -aq --filter "name=osrm" | xargs -r docker rm 2>/dev/null || true
 
+# Clean up old logs (optional - ask user)
+print_status "Cleaning up old logs..."
+rm -f logs/osrm_setup_*.log 2>/dev/null || true
+print_success "Old logs cleaned up"
+
 print_success "Cleanup completed"

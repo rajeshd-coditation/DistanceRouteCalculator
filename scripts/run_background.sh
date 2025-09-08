@@ -37,6 +37,12 @@ fi
 # Create logs directory
 mkdir -p logs
 
+# Clean up old logs and PID files
+print_status "Cleaning up old logs and PID files..."
+rm -f logs/osrm_setup_*.log 2>/dev/null || true
+rm -f logs/osrm_setup.pid 2>/dev/null || true
+print_success "Old logs cleaned up"
+
 # Generate timestamp for this run
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="logs/osrm_setup_${TIMESTAMP}.log"

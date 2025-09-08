@@ -53,8 +53,20 @@ if [ -z "$LATEST_LOG" ]; then
     exit 1
 fi
 
+# Show log file info
+LOG_SIZE=$(du -h "$LATEST_LOG" | cut -f1)
+LOG_LINES=$(wc -l < "$LATEST_LOG")
+
 print_status "Monitoring log: $LATEST_LOG"
+print_status "Log size: $LOG_SIZE, Lines: $LOG_LINES"
 print_status "Press Ctrl+C to stop monitoring"
+echo ""
+
+# Show last few lines before tailing
+print_status "=== Last 10 lines ==="
+tail -10 "$LATEST_LOG"
+echo ""
+print_status "=== Live monitoring (new lines will appear below) ==="
 echo ""
 
 # Monitor the log file
