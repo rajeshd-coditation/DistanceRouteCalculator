@@ -45,15 +45,60 @@ if [ -f "$PID_FILE" ]; then
         LATEST_LOG=$(ls -t logs/osrm_setup_*.log 2>/dev/null | head -1)
         if [ -n "$LATEST_LOG" ]; then
             echo ""
-            print_status "Latest log entries:"
-            tail -5 "$LATEST_LOG"
+            print_status "Current progress:"
+            
+            # Check what step we're on
+            if grep -q "Step 1/3: Extracting" "$LATEST_LOG"; then
+                print_status "🔄 Currently: EXTRACTION (Step 1/3)"
+                print_status "This typically takes 2-3 hours and uses 20-25GB RAM"
+            elif grep -q "Step 2/3: Partitioning" "$LATEST_LOG"; then
+                print_status "🔄 Currently: PARTITIONING (Step 2/3)"
+                print_status "This typically takes 45-90 minutes and uses 10-15GB RAM"
+            elif grep -q "Step 3/3: Customizing" "$LATEST_LOG"; then
+                print_status "🔄 Currently: CUSTOMIZING (Step 3/3)"
+                print_status "This typically takes 45-90 minutes and uses 10-15GB RAM"
+            elif grep -q "Starting OSRM Server" "$LATEST_LOG"; then
+                print_status "🔄 Currently: STARTING SERVER"
+                print_status "This typically takes 1-2 minutes"
+            else
+                print_status "🔄 Currently: INITIALIZING"
+            fi
+            
+            echo ""
+            print_status "Recent activity (last 5 lines):"
+            tail -5 "$LATEST_LOG" 2>/dev/null || print_warning "No recent activity found"
+            
+            # Check for errors
+            echo ""
+            print_status "Error check:"
+            if tail -20 "$LATEST_LOG" 2>/dev/null | grep -q "Out of memory\|OOM\|killed\|terminate called"; then
+                print_error "🚨 MEMORY ISSUE DETECTED!"
+                print_status "The process is running out of memory."
+                print_status "Check memory: free -h"
+            elif tail -20 "$LATEST_LOG" 2>/dev/null | grep -q "no edges remaining\|Profile.*error"; then
+                print_error "🚨 OSRM PROCESSING ERROR!"
+                print_status "OSRM profile or extraction failed."
+            elif tail -20 "$LATEST_LOG" 2>/dev/null | grep -q "No space left\|disk full"; then
+                print_error "🚨 DISK SPACE ISSUE!"
+                print_status "Running out of disk space."
+                print_status "Check disk: df -h"
+            else
+                print_success "No errors detected in recent logs"
+            fi
+            
+            # Show log file info
+            LOG_SIZE=$(du -h "$LATEST_LOG" | cut -f1)
+            LOG_LINES=$(wc -l < "$LATEST_LOG")
+            print_status "Log file: $LATEST_LOG ($LOG_SIZE, $LOG_LINES lines)"
         fi
     else
         print_error "Setup process (PID: $PID) is not running"
         print_status "Check logs for errors: tail -f logs/osrm_setup_*.log"
+        print_status "Run diagnostic: ./scripts/diagnose_osrm.sh"
     fi
 else
     print_warning "No background setup process found"
+    print_status "Start setup with: ./scripts/run_background.sh"
 fi
 
 echo ""
@@ -107,3 +152,4 @@ print_status "Quick commands:"
 echo "  Monitor:    ./scripts/monitor_setup.sh"
 echo "  Stop:       ./scripts/stop_setup.sh"
 echo "  Logs:       tail -f logs/osrm_setup_*.log"
+echo "  Diagnose:   ./scripts/diagnose_osrm.sh"
