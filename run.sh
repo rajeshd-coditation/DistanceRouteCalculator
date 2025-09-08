@@ -59,6 +59,26 @@ check_memory() {
     return 0
 }
 
+# Function to show system resources
+show_system_resources() {
+    print_progress "=== SYSTEM RESOURCES ==="
+    check_memory
+    
+    # Show disk usage
+    local disk_usage=$(df -h . | tail -1 | awk '{print $5}')
+    print_progress "Disk usage: $disk_usage"
+    
+    # Show CPU load
+    local cpu_load=$(uptime | awk -F'load average:' '{print $2}')
+    print_progress "CPU load:$cpu_load"
+    
+    # Show running processes
+    local docker_processes=$(ps aux | grep docker | wc -l)
+    print_progress "Docker processes: $docker_processes"
+    
+    print_progress "========================"
+}
+
 # Check if running as root
 if [[ $EUID -eq 0 ]]; then
    print_error "This script should not be run as root"
@@ -260,7 +280,45 @@ print_progress "Using $THREADS threads for extraction"
 
 print_success "Using built-in car.lua profile (guaranteed to work)"
 
-$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads $THREADS
+# Verify input file exists and show details
+print_progress "Verifying input file..."
+if [ ! -f "us-latest.osm.pbf" ]; then
+    print_error "Input file us-latest.osm.pbf not found!"
+    exit 1
+fi
+
+FILE_SIZE=$(du -h us-latest.osm.pbf | cut -f1)
+print_progress "Input file: us-latest.osm.pbf (${FILE_SIZE})"
+
+# Show Docker command being executed
+print_progress "Executing Docker command:"
+print_progress "docker run -t -v \"$PWD:/data\" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads $THREADS"
+
+# Run extraction with detailed logging
+print_progress "Starting OSRM extraction..."
+print_progress "This will take 2-3 hours. Monitor memory usage below:"
+show_system_resources
+
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads $THREADS 2>&1 | while IFS= read -r line; do
+    echo "[$(date '+%H:%M:%S')] $line"
+    
+    # Check for specific error patterns
+    if echo "$line" | grep -q "no edges remaining"; then
+        print_error "CRITICAL: No edges remaining after parsing!"
+        print_error "This usually means the profile is too restrictive"
+        print_error "or there's an issue with the input data"
+    elif echo "$line" | grep -q "Profile must return a function table"; then
+        print_error "CRITICAL: Profile syntax error!"
+        print_error "The car.lua profile has a syntax issue"
+    elif echo "$line" | grep -q "terminate called after throwing"; then
+        print_error "CRITICAL: OSRM process crashed!"
+        print_error "Check memory usage and system resources"
+    elif echo "$line" | grep -q "Parsing finished"; then
+        print_success "Parsing completed successfully!"
+    elif echo "$line" | grep -q "Raw input contains"; then
+        print_progress "Data summary: $line"
+    fi
+done
 
 if [ $? -eq 0 ]; then
     print_success "Extraction completed successfully"
@@ -274,7 +332,27 @@ print_progress "Step 2/3: Partitioning data..."
 print_progress "This step typically takes 45-90 minutes and uses 10-15GB RAM"
 print_progress "Using $THREADS threads for partitioning"
 check_memory
-$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm --threads $THREADS
+
+# Verify .osrm file exists
+if [ ! -f "us-latest.osrm" ]; then
+    print_error "OSRM file us-latest.osrm not found! Extraction may have failed."
+    exit 1
+fi
+
+print_progress "OSRM file found: us-latest.osrm"
+print_progress "Executing: docker run -t -v \"$PWD:/data\" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm --threads $THREADS"
+show_system_resources
+
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm --threads $THREADS 2>&1 | while IFS= read -r line; do
+    echo "[$(date '+%H:%M:%S')] $line"
+    
+    if echo "$line" | grep -q "terminate called after throwing"; then
+        print_error "CRITICAL: Partition process crashed!"
+        print_error "Check memory usage and system resources"
+    elif echo "$line" | grep -q "Partitioning finished"; then
+        print_success "Partitioning completed successfully!"
+    fi
+done
 
 if [ $? -eq 0 ]; then
     print_success "Partition completed successfully"
@@ -288,7 +366,27 @@ print_progress "Step 3/3: Customizing data..."
 print_progress "This step typically takes 45-90 minutes and uses 10-15GB RAM"
 print_progress "Using $THREADS threads for customizing"
 check_memory
-$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm --threads $THREADS
+
+# Verify .osrm file still exists
+if [ ! -f "us-latest.osrm" ]; then
+    print_error "OSRM file us-latest.osrm not found! Partition may have failed."
+    exit 1
+fi
+
+print_progress "OSRM file found: us-latest.osrm"
+print_progress "Executing: docker run -t -v \"$PWD:/data\" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm --threads $THREADS"
+show_system_resources
+
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm --threads $THREADS 2>&1 | while IFS= read -r line; do
+    echo "[$(date '+%H:%M:%S')] $line"
+    
+    if echo "$line" | grep -q "terminate called after throwing"; then
+        print_error "CRITICAL: Customize process crashed!"
+        print_error "Check memory usage and system resources"
+    elif echo "$line" | grep -q "Customizing finished"; then
+        print_success "Customizing completed successfully!"
+    fi
+done
 
 if [ $? -eq 0 ]; then
     print_success "Customize completed successfully"
