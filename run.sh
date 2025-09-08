@@ -96,6 +96,18 @@ else
     DOCKER_CMD="docker"
 fi
 
+# Clean up any existing Docker containers
+print_status "Cleaning up existing Docker containers..."
+$DOCKER_CMD stop $($DOCKER_CMD ps -q) 2>/dev/null || true
+$DOCKER_CMD rm $($DOCKER_CMD ps -aq) 2>/dev/null || true
+
+# Specifically clean up OSRM containers
+print_status "Cleaning up OSRM containers..."
+$DOCKER_CMD ps -q --filter "name=osrm" | xargs -r $DOCKER_CMD stop 2>/dev/null || true
+$DOCKER_CMD ps -aq --filter "name=osrm" | xargs -r $DOCKER_CMD rm 2>/dev/null || true
+
+print_success "Docker cleanup completed"
+
 # Step 3: Install Docker Compose
 print_status "Installing Docker Compose..."
 if ! command -v docker-compose &> /dev/null; then

@@ -68,8 +68,13 @@ else
 fi
 
 # Also stop any running Docker containers
-print_status "Stopping any running OSRM Docker containers..."
-docker ps -q --filter "name=osrm" | xargs -r docker stop
-docker ps -aq --filter "name=osrm" | xargs -r docker rm
+print_status "Stopping any running Docker containers..."
+docker stop $(docker ps -q) 2>/dev/null || true
+docker rm $(docker ps -aq) 2>/dev/null || true
+
+# Specifically clean up OSRM containers
+print_status "Cleaning up OSRM containers..."
+docker ps -q --filter "name=osrm" | xargs -r docker stop 2>/dev/null || true
+docker ps -aq --filter "name=osrm" | xargs -r docker rm 2>/dev/null || true
 
 print_success "Cleanup completed"
