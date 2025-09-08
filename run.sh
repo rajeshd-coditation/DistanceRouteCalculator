@@ -195,9 +195,10 @@ fi
 if [ "$SKIP_PROCESSING" != "true" ]; then
 
 # Extract
-print_progress "Step 1/3: Extracting with car profile..."
+print_progress "Step 1/3: Extracting with truck profile..."
 print_progress "This step typically takes 1-2 hours and uses 25-35GB RAM"
-$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads 8
+print_progress "Using truck.lua profile for movers and packers routing"
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf --threads 8
 
 if [ $? -eq 0 ]; then
     print_success "Extraction completed successfully"
