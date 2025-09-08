@@ -11,6 +11,7 @@ echo "========================================"
 echo "Target: Ubuntu AWS Instance (64GB RAM)"
 echo "Coverage: Entire US Region"
 echo "Start time: $(date)"
+echo "Process ID: $$"
 echo ""
 
 # Colors for output
@@ -35,6 +36,11 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to show progress with timestamp
+print_progress() {
+    echo -e "${BLUE}[$(date '+%H:%M:%S')]${NC} $1"
 }
 
 # Check if running as root
@@ -66,8 +72,28 @@ if ! command -v docker &> /dev/null; then
     sudo usermod -aG docker $USER
     rm get-docker.sh
     print_success "Docker installed successfully"
+    print_warning "You may need to logout and login again for Docker group changes to take effect"
 else
     print_success "Docker already installed"
+fi
+
+# Check if user is in docker group
+if ! groups $USER | grep -q '\bdocker\b'; then
+    print_warning "User not in docker group. Adding user to docker group..."
+    sudo usermod -aG docker $USER
+    print_warning "Please logout and login again, or run: newgrp docker"
+    print_warning "Then run this script again."
+    exit 1
+fi
+
+# Test Docker without sudo
+print_status "Testing Docker permissions..."
+if ! docker ps &> /dev/null; then
+    print_warning "Docker requires sudo. Using sudo for Docker commands..."
+    DOCKER_CMD="sudo docker"
+else
+    print_success "Docker works without sudo"
+    DOCKER_CMD="docker"
 fi
 
 # Step 3: Install Docker Compose
@@ -107,26 +133,71 @@ print_status "Setting up OSRM data directory..."
 mkdir -p osrm-data
 cd osrm-data
 
-# Download US map data (11GB)
-print_status "Downloading US map data (this may take 30-60 minutes)..."
-print_warning "File size: ~11GB - ensure you have sufficient disk space"
-wget -O us-latest.osm.pbf http://download.geofabrik.de/north-america/us-latest.osm.pbf
-
+# Check if PBF file already exists
 if [ -f "us-latest.osm.pbf" ]; then
     FILE_SIZE=$(du -h us-latest.osm.pbf | cut -f1)
-    print_success "US map data downloaded successfully (${FILE_SIZE})"
+    print_warning "US map data already exists (${FILE_SIZE})"
+    print_status "File: us-latest.osm.pbf"
+    print_status "Location: $(pwd)/us-latest.osm.pbf"
+    echo ""
+    read -p "Do you want to re-download the US map data? (y/N): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_status "Re-downloading US map data (this may take 30-60 minutes)..."
+        print_warning "File size: ~11GB - ensure you have sufficient disk space"
+        wget -O us-latest.osm.pbf http://download.geofabrik.de/north-america/us-latest.osm.pbf
+        if [ -f "us-latest.osm.pbf" ]; then
+            FILE_SIZE=$(du -h us-latest.osm.pbf | cut -f1)
+            print_success "US map data re-downloaded successfully (${FILE_SIZE})"
+        else
+            print_error "Failed to re-download US map data"
+            exit 1
+        fi
+    else
+        print_success "Using existing US map data (${FILE_SIZE})"
+    fi
 else
-    print_error "Failed to download US map data"
-    exit 1
+    # Download US map data (11GB)
+    print_status "Downloading US map data (this may take 30-60 minutes)..."
+    print_warning "File size: ~11GB - ensure you have sufficient disk space"
+    wget -O us-latest.osm.pbf http://download.geofabrik.de/north-america/us-latest.osm.pbf
+
+    if [ -f "us-latest.osm.pbf" ]; then
+        FILE_SIZE=$(du -h us-latest.osm.pbf | cut -f1)
+        print_success "US map data downloaded successfully (${FILE_SIZE})"
+    else
+        print_error "Failed to download US map data"
+        exit 1
+    fi
 fi
 
 # Step 7: OSRM Processing (Extract, Partition, Customize)
-print_status "Starting OSRM processing (this will take 2-4 hours)..."
-print_warning "Memory usage will peak at 25-35GB during extraction"
+# Check if OSRM files already exist
+if [ -f "us-latest.osrm" ]; then
+    print_warning "OSRM processed files already exist"
+    print_status "Found: us-latest.osrm"
+    echo ""
+    read -p "Do you want to re-process the OSRM data? (y/N): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_status "Re-processing OSRM data (this will take 2-4 hours)..."
+        print_warning "Memory usage will peak at 25-35GB during extraction"
+    else
+        print_success "Using existing OSRM processed files"
+        SKIP_PROCESSING=true
+    fi
+else
+    print_status "Starting OSRM processing (this will take 2-4 hours)..."
+    print_warning "Memory usage will peak at 25-35GB during extraction"
+    SKIP_PROCESSING=false
+fi
+
+if [ "$SKIP_PROCESSING" != "true" ]; then
 
 # Extract
-print_status "Step 1/3: Extracting with car profile..."
-docker run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads 8
+print_progress "Step 1/3: Extracting with car profile..."
+print_progress "This step typically takes 1-2 hours and uses 25-35GB RAM"
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads 8
 
 if [ $? -eq 0 ]; then
     print_success "Extraction completed successfully"
@@ -136,8 +207,9 @@ else
 fi
 
 # Partition
-print_status "Step 2/3: Partitioning data..."
-docker run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm
+print_progress "Step 2/3: Partitioning data..."
+print_progress "This step typically takes 30-60 minutes"
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm
 
 if [ $? -eq 0 ]; then
     print_success "Partition completed successfully"
@@ -147,8 +219,9 @@ else
 fi
 
 # Customize
-print_status "Step 3/3: Customizing data..."
-docker run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm
+print_progress "Step 3/3: Customizing data..."
+print_progress "This step typically takes 30-60 minutes"
+$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm
 
 if [ $? -eq 0 ]; then
     print_success "Customize completed successfully"
@@ -158,10 +231,11 @@ else
 fi
 
 print_success "OSRM processing completed successfully!"
+fi
 
 # Step 8: Start OSRM Server
 print_status "Starting OSRM Server with US map data..."
-docker run -d --name osrm-us-server -p 5001:5000 -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/us-latest.osrm
+$DOCKER_CMD run -d --name osrm-us-server -p 5001:5000 -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/us-latest.osrm
 
 if [ $? -eq 0 ]; then
     print_success "OSRM Server started successfully on port 5001"
