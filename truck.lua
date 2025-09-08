@@ -1,20 +1,17 @@
 -- Truck profile for movers and packers
--- Based on OSRM car profile with truck optimizations
--- This ensures it works reliably while allowing gradual optimization
+-- Essentially car.lua with minimal truck speed adjustments
+-- This ensures it works reliably with all road types
 
--- Vehicle properties for 32-foot moving truck
-vehicle_height = 4.0   -- meters (13.1 feet - typical moving truck height)
-vehicle_width = 2.6    -- meters (8.5 feet - typical moving truck width)
-vehicle_length = 9.8   -- meters (32 feet - standard moving truck length)
+-- Vehicle properties (for reference, not used in filtering)
+vehicle_height = 4.0   -- meters
+vehicle_width = 2.6    -- meters
+vehicle_length = 9.8   -- meters
+maxweight = 12.0       -- tons
 
--- Weight restrictions for moving trucks
-maxweight = 12.0  -- tons (typical 32-foot moving truck weight)
-
--- Function to get speed (based on car profile)
+-- Function to get speed (exactly like car.lua)
 function get_speed(way, result, highway, max_speed)
     local speed = 0
     
-    -- Base speed logic (from car profile)
     if highway == "motorway" then
         speed = 90
     elseif highway == "trunk" then
@@ -34,10 +31,9 @@ function get_speed(way, result, highway, max_speed)
     elseif highway == "track" then
         speed = 15
     else
-        speed = 30  -- default
+        speed = 30
     end
     
-    -- Apply max speed limit if specified
     if max_speed and max_speed > 0 then
         speed = math.min(speed, max_speed)
     end
@@ -45,7 +41,7 @@ function get_speed(way, result, highway, max_speed)
     return speed
 end
 
--- Function to process way data (car profile with truck adjustments)
+-- Function to process way data (minimal changes from car.lua)
 function process_way(way, result, relations)
     local highway = way:get_value_by_key("highway")
     
@@ -53,26 +49,25 @@ function process_way(way, result, relations)
         return
     end
     
-    -- Skip non-drivable roads (same as car profile)
+    -- Only skip obvious non-drivable roads (same as car.lua)
     if highway == "footway" or highway == "cycleway" or highway == "path" or 
        highway == "steps" or highway == "pedestrian" or highway == "bridleway" then
         return
     end
     
-    -- Get base speed
+    -- Get base speed (same as car.lua)
     local forward_speed = get_speed(way, result, highway, nil)
     local backward_speed = forward_speed
     
-    -- Apply truck speed adjustments (gradual optimization)
-    -- For now, just 10% slower than cars (can be optimized later)
-    forward_speed = forward_speed * 0.9
+    -- Apply truck speed adjustment (only change from car.lua)
+    forward_speed = forward_speed * 0.9  -- 10% slower than cars
     backward_speed = backward_speed * 0.9
     
-    -- Set the speeds
+    -- Set speeds
     result.forward_speed = forward_speed
     result.backward_speed = backward_speed
     
-    -- Handle oneway roads (same as car profile)
+    -- Handle oneway (same as car.lua)
     local oneway = way:get_value_by_key("oneway")
     if oneway == "yes" or oneway == "1" or oneway == "true" then
         result.backward_speed = -1
@@ -81,12 +76,12 @@ function process_way(way, result, relations)
     end
 end
 
--- Function to process node data
+-- Function to process node data (same as car.lua)
 function process_node(node, result)
     return
 end
 
--- Function to process turn restrictions
+-- Function to process turn restrictions (same as car.lua)
 function process_turn(way, turn, result)
     return
 end
