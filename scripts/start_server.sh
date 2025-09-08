@@ -50,6 +50,15 @@ if [ -d "osrm-data" ]; then
         exit 1
     fi
     
+    # Check if main OSRM file exists (not just timestamp)
+    if [ ! -f "osrm-data/us-latest.osrm" ]; then
+        print_error "Main OSRM file (us-latest.osrm) not found!"
+        print_status "Only found:"
+        ls -la osrm-data/*.osrm* 2>/dev/null
+        print_status "OSRM processing may have failed. Please run the full setup again: ./run.sh"
+        exit 1
+    fi
+    
     print_success "Found $OSRM_FILES OSRM file(s) in osrm-data directory"
     ls -la osrm-data/*.osrm* 2>/dev/null
 else
@@ -85,9 +94,14 @@ if [ $? -eq 0 ]; then
     print_success "OSRM Server started successfully on port 5001"
     
     # Get external IP
-    EXTERNAL_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "localhost")
+    EXTERNAL_IP=$(curl -s --max-time 5 http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "YOUR_AWS_IP")
     print_status "Server URL: http://localhost:5001 (local)"
-    print_status "External URL: http://${EXTERNAL_IP}:5001 (external)"
+    if [ "$EXTERNAL_IP" = "YOUR_AWS_IP" ]; then
+        print_status "External URL: http://YOUR_AWS_IP:5001 (replace YOUR_AWS_IP with your actual AWS public IP)"
+        print_status "To find your IP: curl http://169.254.169.254/latest/meta-data/public-ipv4"
+    else
+        print_status "External URL: http://${EXTERNAL_IP}:5001 (external)"
+    fi
     
     print_status "Waiting 10 seconds for server to fully start..."
     sleep 10
