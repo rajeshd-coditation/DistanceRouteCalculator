@@ -1,0 +1,558 @@
+{
+	"info": {
+		"_postman_id": "osrm-route-calculator-api",
+		"name": "OSRM Route Calculator API",
+		"description": "Complete API collection for testing the Distance Route Calculator OSRM endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/route/v1/driving/-122.4194,37.7749;-122.4091,37.7849?overview=false",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"route",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.4091,37.7849"
+					],
+					"query": [
+						{
+							"key": "overview",
+							"value": "false"
+						}
+					]
+				},
+				"description": "Basic health check to verify OSRM server is running"
+			},
+			"response": []
+		},
+		{
+			"name": "Single Route (Basic)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/route/v1/driving/-122.4194,37.7749;-122.2711,37.8044?overview=false&annotations=distance,duration",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"route",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.2711,37.8044"
+					],
+					"query": [
+						{
+							"key": "overview",
+							"value": "false"
+						},
+						{
+							"key": "annotations",
+							"value": "distance,duration"
+						}
+					]
+				},
+				"description": "Get single route from San Francisco to Oakland"
+			},
+			"response": []
+		},
+		{
+			"name": "Multiple Routes (Alternatives)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/route/v1/driving/-122.4194,37.7749;-122.2711,37.8044?alternatives=3&overview=false&annotations=distance,duration",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"route",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.2711,37.8044"
+					],
+					"query": [
+						{
+							"key": "alternatives",
+							"value": "3"
+						},
+						{
+							"key": "overview",
+							"value": "false"
+						},
+						{
+							"key": "annotations",
+							"value": "distance,duration"
+						}
+					]
+				},
+				"description": "Get 3 alternative routes from San Francisco to Oakland"
+			},
+			"response": []
+		},
+		{
+			"name": "Route with Geometry",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/route/v1/driving/-122.4194,37.7749;-122.4091,37.7849?overview=full&annotations=distance,duration",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"route",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.4091,37.7849"
+					],
+					"query": [
+						{
+							"key": "overview",
+							"value": "full"
+						},
+						{
+							"key": "annotations",
+							"value": "distance,duration"
+						}
+					]
+				},
+				"description": "Get route with detailed geometry (polyline coordinates)"
+			},
+			"response": []
+		},
+		{
+			"name": "Route with Turn-by-Turn Steps",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/route/v1/driving/-122.4194,37.7749;-122.4091,37.7849?steps=true&overview=false&annotations=distance,duration",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"route",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.4091,37.7849"
+					],
+					"query": [
+						{
+							"key": "steps",
+							"value": "true"
+						},
+						{
+							"key": "overview",
+							"value": "false"
+						},
+						{
+							"key": "annotations",
+							"value": "distance,duration"
+						}
+					]
+				},
+				"description": "Get route with detailed turn-by-turn navigation steps"
+			},
+			"response": []
+		},
+		{
+			"name": "Distance Matrix (2x2)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/table/v1/driving/-122.4194,37.7749;-122.2711,37.8044?annotations=distance,duration",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"table",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.2711,37.8044"
+					],
+					"query": [
+						{
+							"key": "annotations",
+							"value": "distance,duration"
+						}
+					]
+				},
+				"description": "Get distance matrix between 2 locations (SF and Oakland)"
+			},
+			"response": []
+		},
+		{
+			"name": "Distance Matrix (3x3)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/table/v1/driving/-122.4194,37.7749;-122.2711,37.8044;-118.2437,34.0522?annotations=distance,duration",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"table",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.2711,37.8044;-118.2437,34.0522"
+					],
+					"query": [
+						{
+							"key": "annotations",
+							"value": "distance,duration"
+						}
+					]
+				},
+				"description": "Get distance matrix between 3 locations (SF, Oakland, LA)"
+			},
+			"response": []
+		},
+		{
+			"name": "Distance Matrix (Partial)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/table/v1/driving/-122.4194,37.7749;-122.2711,37.8044;-118.2437,34.0522;-118.4004,34.0736?sources=0,1&destinations=2,3&annotations=distance,duration",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"table",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.2711,37.8044;-118.2437,34.0522;-118.4004,34.0736"
+					],
+					"query": [
+						{
+							"key": "sources",
+							"value": "0,1"
+						},
+						{
+							"key": "destinations",
+							"value": "2,3"
+						},
+						{
+							"key": "annotations",
+							"value": "distance,duration"
+						}
+					]
+				},
+				"description": "Get partial distance matrix (SF/Oakland to LA/Beverly Hills)"
+			},
+			"response": []
+		},
+		{
+			"name": "Nearest Road",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/nearest/v1/driving/-122.4194,37.7749",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"nearest",
+						"v1",
+						"driving",
+						"-122.4194,37.7749"
+					]
+				},
+				"description": "Find the nearest road to a given coordinate"
+			},
+			"response": []
+		},
+		{
+			"name": "Map Matching",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/match/v1/driving/-122.4194,37.7749;-122.4091,37.7849?overview=false&annotations=distance,duration",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"match",
+						"v1",
+						"driving",
+						"-122.4194,37.7749;-122.4091,37.7849"
+					],
+					"query": [
+						{
+							"key": "overview",
+							"value": "false"
+						},
+						{
+							"key": "annotations",
+							"value": "distance,duration"
+						}
+					]
+				},
+				"description": "Map match GPS coordinates to road network"
+			},
+			"response": []
+		},
+		{
+			"name": "California Test Routes",
+			"item": [
+				{
+					"name": "SF Financial District to North Beach",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/route/v1/driving/-122.4194,37.7749;-122.4091,37.7849?alternatives=2&overview=false&annotations=distance,duration",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"route",
+								"v1",
+								"driving",
+								"-122.4194,37.7749;-122.4091,37.7849"
+							],
+							"query": [
+								{
+									"key": "alternatives",
+									"value": "2"
+								},
+								{
+									"key": "overview",
+									"value": "false"
+								},
+								{
+									"key": "annotations",
+									"value": "distance,duration"
+								}
+							]
+						},
+						"description": "Short intra-city route in San Francisco"
+					},
+					"response": []
+				},
+				{
+					"name": "SF to Oakland (Inter-city)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/route/v1/driving/-122.4194,37.7749;-122.2711,37.8044?alternatives=2&overview=false&annotations=distance,duration",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"route",
+								"v1",
+								"driving",
+								"-122.4194,37.7749;-122.2711,37.8044"
+							],
+							"query": [
+								{
+									"key": "alternatives",
+									"value": "2"
+								},
+								{
+									"key": "overview",
+									"value": "false"
+								},
+								{
+									"key": "annotations",
+									"value": "distance,duration"
+								}
+							]
+						},
+						"description": "Inter-city route from San Francisco to Oakland"
+					},
+					"response": []
+				},
+				{
+					"name": "LA Downtown to Hollywood",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/route/v1/driving/-118.2437,34.0522;-118.3287,34.0928?alternatives=2&overview=false&annotations=distance,duration",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"route",
+								"v1",
+								"driving",
+								"-118.2437,34.0522;-118.3287,34.0928"
+							],
+							"query": [
+								{
+									"key": "alternatives",
+									"value": "2"
+								},
+								{
+									"key": "overview",
+									"value": "false"
+								},
+								{
+									"key": "annotations",
+									"value": "distance,duration"
+								}
+							]
+						},
+						"description": "Intra-city route in Los Angeles"
+					},
+					"response": []
+				},
+				{
+					"name": "Beverly Hills to Santa Monica",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/route/v1/driving/-118.4004,34.0736;-118.4912,34.0195?alternatives=2&overview=false&annotations=distance,duration",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"route",
+								"v1",
+								"driving",
+								"-118.4004,34.0736;-118.4912,34.0195"
+							],
+							"query": [
+								{
+									"key": "alternatives",
+									"value": "2"
+								},
+								{
+									"key": "overview",
+									"value": "false"
+								},
+								{
+									"key": "annotations",
+									"value": "distance,duration"
+								}
+							]
+						},
+						"description": "Westside LA route"
+					},
+					"response": []
+				},
+				{
+					"name": "San Diego Downtown to La Jolla",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/route/v1/driving/-117.1611,32.7157;-117.2742,32.8328?alternatives=2&overview=false&annotations=distance,duration",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"route",
+								"v1",
+								"driving",
+								"-117.1611,32.7157;-117.2742,32.8328"
+							],
+							"query": [
+								{
+									"key": "alternatives",
+									"value": "2"
+								},
+								{
+									"key": "overview",
+									"value": "false"
+								},
+								{
+									"key": "annotations",
+									"value": "distance,duration"
+								}
+							]
+						},
+						"description": "San Diego intra-city route"
+					},
+					"response": []
+				}
+			],
+			"description": "Collection of test routes within California"
+		},
+		{
+			"name": "Error Testing",
+			"item": [
+				{
+					"name": "Invalid Coordinates",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/route/v1/driving/999,999;888,888?overview=false",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"route",
+								"v1",
+								"driving",
+								"999,999;888,888"
+							],
+							"query": [
+								{
+									"key": "overview",
+									"value": "false"
+								}
+							]
+						},
+						"description": "Test with invalid coordinates (outside California)"
+					},
+					"response": []
+				},
+				{
+					"name": "Malformed Request",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/route/v1/driving/invalid?overview=false",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"route",
+								"v1",
+								"driving",
+								"invalid"
+							],
+							"query": [
+								{
+									"key": "overview",
+									"value": "false"
+								}
+							]
+						},
+						"description": "Test with malformed coordinate string"
+					},
+					"response": []
+				}
+			],
+			"description": "Test error handling and edge cases"
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:5001",
+			"description": "OSRM server base URL"
+		}
+	]
+}

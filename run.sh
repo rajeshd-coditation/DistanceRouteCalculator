@@ -1,0 +1,243 @@
+#!/bin/bash
+
+# OSRM Distance Route Calculator - Complete Setup Script
+# For Ubuntu AWS Instance with 64GB RAM
+# This script sets up everything needed for US-wide routing
+
+set -e  # Exit on any error
+
+echo "🚀 OSRM Distance Route Calculator Setup"
+echo "========================================"
+echo "Target: Ubuntu AWS Instance (64GB RAM)"
+echo "Coverage: Entire US Region"
+echo "Start time: $(date)"
+echo ""
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if running as root
+if [[ $EUID -eq 0 ]]; then
+   print_error "This script should not be run as root"
+   exit 1
+fi
+
+# Check available memory
+TOTAL_MEM=$(free -g | awk '/^Mem:/{print $2}')
+if [ $TOTAL_MEM -lt 32 ]; then
+    print_warning "System has ${TOTAL_MEM}GB RAM. Recommended: 32GB+ for US dataset"
+    print_warning "Proceeding anyway, but may encounter memory issues..."
+fi
+
+print_status "System has ${TOTAL_MEM}GB RAM"
+
+# Step 1: Update system packages
+print_status "Updating system packages..."
+sudo apt-get update -y
+sudo apt-get upgrade -y
+
+# Step 2: Install Docker
+print_status "Installing Docker..."
+if ! command -v docker &> /dev/null; then
+    # Install Docker
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+    sudo usermod -aG docker $USER
+    rm get-docker.sh
+    print_success "Docker installed successfully"
+else
+    print_success "Docker already installed"
+fi
+
+# Step 3: Install Docker Compose
+print_status "Installing Docker Compose..."
+if ! command -v docker-compose &> /dev/null; then
+    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+    print_success "Docker Compose installed successfully"
+else
+    print_success "Docker Compose already installed"
+fi
+
+# Step 4: Install Python 3.11 and pip
+print_status "Installing Python 3.11 and pip..."
+sudo apt-get install -y software-properties-common
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt-get update -y
+sudo apt-get install -y python3.11 python3.11-venv python3.11-dev python3-pip
+
+# Create virtual environment
+print_status "Creating Python virtual environment..."
+python3.11 -m venv venv
+source venv/bin/activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+print_success "Python 3.11 and virtual environment ready"
+
+# Step 5: Install Python dependencies
+print_status "Installing Python dependencies..."
+pip install -r requirements.txt
+print_success "Python dependencies installed"
+
+# Step 6: Create directories and download US map data
+print_status "Setting up OSRM data directory..."
+mkdir -p osrm-data
+cd osrm-data
+
+# Download US map data (11GB)
+print_status "Downloading US map data (this may take 30-60 minutes)..."
+print_warning "File size: ~11GB - ensure you have sufficient disk space"
+wget -O us-latest.osm.pbf http://download.geofabrik.de/north-america/us-latest.osm.pbf
+
+if [ -f "us-latest.osm.pbf" ]; then
+    FILE_SIZE=$(du -h us-latest.osm.pbf | cut -f1)
+    print_success "US map data downloaded successfully (${FILE_SIZE})"
+else
+    print_error "Failed to download US map data"
+    exit 1
+fi
+
+# Step 7: OSRM Processing (Extract, Partition, Customize)
+print_status "Starting OSRM processing (this will take 2-4 hours)..."
+print_warning "Memory usage will peak at 25-35GB during extraction"
+
+# Extract
+print_status "Step 1/3: Extracting with car profile..."
+docker run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads 8
+
+if [ $? -eq 0 ]; then
+    print_success "Extraction completed successfully"
+else
+    print_error "Extraction failed"
+    exit 1
+fi
+
+# Partition
+print_status "Step 2/3: Partitioning data..."
+docker run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/us-latest.osrm
+
+if [ $? -eq 0 ]; then
+    print_success "Partition completed successfully"
+else
+    print_error "Partition failed"
+    exit 1
+fi
+
+# Customize
+print_status "Step 3/3: Customizing data..."
+docker run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/us-latest.osrm
+
+if [ $? -eq 0 ]; then
+    print_success "Customize completed successfully"
+else
+    print_error "Customize failed"
+    exit 1
+fi
+
+print_success "OSRM processing completed successfully!"
+
+# Step 8: Start OSRM Server
+print_status "Starting OSRM Server with US map data..."
+docker run -d --name osrm-us-server -p 5001:5000 -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/us-latest.osrm
+
+if [ $? -eq 0 ]; then
+    print_success "OSRM Server started successfully on port 5001"
+    print_status "Server URL: http://localhost:5001"
+else
+    print_error "Failed to start OSRM server"
+    exit 1
+fi
+
+# Wait for server to be ready
+print_status "Waiting for server to be ready..."
+sleep 10
+
+# Step 9: Test the server
+print_status "Testing OSRM server..."
+
+# Test with sample coordinates (NYC to LA)
+TEST_COORDS="-74.0060,40.7128;-118.2437,34.0522"
+print_status "Testing route: NYC to LA"
+
+# Test basic route
+RESPONSE=$(curl -s "http://localhost:5001/route/v1/driving/${TEST_COORDS}?overview=false&annotations=distance,duration")
+
+if echo "$RESPONSE" | grep -q '"code":"Ok"'; then
+    DISTANCE=$(echo "$RESPONSE" | jq -r '.routes[0].distance')
+    DURATION=$(echo "$RESPONSE" | jq -r '.routes[0].duration')
+    print_success "Server test successful!"
+    print_status "NYC to LA: ${DISTANCE}m distance, ${DURATION}s duration"
+else
+    print_error "Server test failed"
+    print_error "Response: $RESPONSE"
+    exit 1
+fi
+
+# Test Python integration
+print_status "Testing Python integration..."
+cd ..
+source venv/bin/activate
+
+python3 -c "
+from route_calculator import create_movers_route_analyzer
+analyzer = create_movers_route_analyzer('http://localhost:5001')
+source = (-74.0060, 40.7128)  # NYC
+destination = (-118.2437, 34.0522)  # LA
+routes = analyzer.get_routes(source, destination, alternatives=1)
+print(f'✅ Python test successful: {routes.routes[0].distance_km:.1f}km route found')
+"
+
+if [ $? -eq 0 ]; then
+    print_success "Python integration test successful!"
+else
+    print_error "Python integration test failed"
+    exit 1
+fi
+
+# Final success message
+echo ""
+echo "🎉 OSRM Distance Route Calculator Setup Complete!"
+echo "=================================================="
+echo "✅ Docker installed and configured"
+echo "✅ Python 3.11 and virtual environment ready"
+echo "✅ US map data downloaded and processed"
+echo "✅ OSRM server running on port 5001"
+echo "✅ All tests passed"
+echo ""
+echo "🌐 Server URL: http://localhost:5001"
+echo "📊 Coverage: Entire United States"
+echo "🚚 Ready for movers and packers routing!"
+echo ""
+echo "📋 Next steps:"
+echo "  1. Test with your coordinates using the Python API"
+echo "  2. Use the Postman collection for API testing"
+echo "  3. Integrate with your AI model"
+echo ""
+echo "⏰ Total setup time: $(date)"
+echo "💾 Disk usage: $(du -sh osrm-data/)"
+echo "🧠 Memory usage: $(free -h | grep '^Mem:')"
+echo ""
+print_success "Setup completed successfully!"
