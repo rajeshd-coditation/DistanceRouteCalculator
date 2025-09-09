@@ -19,8 +19,8 @@ echo "🔧 Preprocessing data with MLD algorithm..."
 
 # Extract with truck profile (optimized for movers and packers)
 echo "Step 1/3: Extracting with truck profile (optimized for movers)..."
-docker run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend \
-  osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf
+docker run -t -v "$PWD:/data" -v "$PWD/../truck.lua:/opt/truck.lua" ghcr.io/project-osrm/osrm-backend \
+  osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf
 
 # Partition
 echo "Step 2/3: Partitioning..."

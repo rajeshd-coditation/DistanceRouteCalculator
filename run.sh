@@ -264,7 +264,7 @@ if [ "$SKIP_PROCESSING" != "true" ]; then
 # Extract
 print_progress "Step 1/3: Extracting with car profile..."
 print_progress "This step typically takes 2-3 hours and uses 20-25GB RAM"
-print_progress "Using car.lua profile (proven to work reliably)"
+print_progress "Using truck.lua profile (optimized for 32-foot moving trucks)"
 print_progress "Using 4 threads to reduce memory pressure (safer for 31GB available)"
 
 # Check available memory
@@ -278,7 +278,7 @@ else
 fi
 print_progress "Using $THREADS threads for extraction"
 
-print_success "Using built-in car.lua profile (guaranteed to work)"
+print_success "Using truck.lua profile (optimized for 32-foot moving trucks)"
 
 # Verify input file exists and show details
 print_progress "Verifying input file..."
@@ -292,14 +292,14 @@ print_progress "Input file: us-latest.osm.pbf (${FILE_SIZE})"
 
 # Show Docker command being executed
 print_progress "Executing Docker command:"
-print_progress "docker run -t -v \"$PWD:/data\" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads $THREADS"
+print_progress "docker run -t -v \"$PWD:/data\" -v \"$PWD/../truck.lua:/opt/truck.lua\" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf --threads $THREADS"
 
 # Run extraction with detailed logging
 print_progress "Starting OSRM extraction..."
 print_progress "This will take 2-3 hours. Monitor memory usage below:"
 show_system_resources
 
-$DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/us-latest.osm.pbf --threads $THREADS 2>&1 | while IFS= read -r line; do
+$DOCKER_CMD run -t -v "$PWD:/data" -v "$PWD/../truck.lua:/opt/truck.lua" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/truck.lua /data/us-latest.osm.pbf --threads $THREADS 2>&1 | while IFS= read -r line; do
     echo "[$(date '+%H:%M:%S')] $line"
     
     # Check for specific error patterns
@@ -309,7 +309,7 @@ $DOCKER_CMD run -t -v "$PWD:/data" ghcr.io/project-osrm/osrm-backend osrm-extrac
         print_error "or there's an issue with the input data"
     elif echo "$line" | grep -q "Profile must return a function table"; then
         print_error "CRITICAL: Profile syntax error!"
-        print_error "The car.lua profile has a syntax issue"
+        print_error "The truck.lua profile has a syntax issue"
     elif echo "$line" | grep -q "terminate called after throwing"; then
         print_error "CRITICAL: OSRM process crashed!"
         print_error "Check memory usage and system resources"
